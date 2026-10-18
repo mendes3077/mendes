@@ -55,6 +55,7 @@ h1{margin:0;font-size:clamp(26px,6vw,34px);line-height:1.1;letter-spacing:-.01em
 .acts{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:24px}
 .btn{padding:10px 16px;border:1px solid var(--bd);background:var(--card);border-radius:var(--r);cursor:pointer;transition:border-color .15s}
 .btn:hover{border-color:var(--ac)}
+.shortener{flex-basis:100%;text-align:center;text-decoration:none;display:block}
 .btn.pri{background:var(--ac);color:var(--on);border-color:var(--ac);font-weight:600}
 .ed{background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:18px;box-shadow:var(--glow)}
 .eh{display:flex;justify-content:space-between;align-items:center;gap:12px}
@@ -144,21 +145,6 @@ const m=v.replace(/^mailto:/i,'');return/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(m)?'ma
 function socHTML(){const x=S.social.map(it=>{const h=socHref(it.k,it.v);return h?'<a href="'+esc(h)+'" target="_blank" rel="noopener noreferrer">'+esc(NETS[it.k].n)+'</a>':''}).join('');return x?'<div class="soc">'+x+'</div>':''}
 function initials(n){const p=String(n).trim().split(/\s+/).filter(Boolean);return((p[0]||'?')[0]+(p[1]?p[1][0]:'')).toUpperCase()}
 function shareUrl(){return base+'#d='+enc(S)}
-async function shortenShareUrl(url){
-  const cacheKey='tc_short_url_v2:'+url;
-  try{
-    const cached=localStorage.getItem(cacheKey);
-    if(cached&&/^https:\/\/is\.gd\/[A-Za-z0-9]+$/i.test(cached))return cached;
-  }catch(e){}
-  // is.gd oferece uma API simples de encurtamento sem exigir chave de API.
-  const endpoint='https://is.gd/create.php?format=simple&url='+encodeURIComponent(url);
-  const response=await fetch(endpoint,{method:'GET'});
-  if(!response.ok)throw new Error('O serviço de encurtamento não respondeu.');
-  const shortUrl=(await response.text()).trim();
-  if(!/^https:\/\/is\.gd\/[A-Za-z0-9]+$/i.test(shortUrl))throw new Error('O serviço não retornou um link curto válido: '+shortUrl.slice(0,120));
-  try{localStorage.setItem(cacheKey,shortUrl)}catch(e){}
-  return shortUrl;
-}
 function editUrl(){return base+'#e='+enc(S)}
 function setHash(h){try{history.replaceState(null,'',base+h)}catch(e){}}
 function toast(m){clearTimeout(tt);let t=$('.toast');if(!t){t=document.createElement('div');t.className='toast';t.setAttribute('role','status');document.body.appendChild(t)}t.textContent=m;tt=setTimeout(()=>t.remove(),2200)}
@@ -180,7 +166,7 @@ return l.type==='cmd'?'<button class="lk" data-cmd="'+i+'" title="Copiar comando
 function renderCard(){const s=S;
 $('#card').innerHTML='<div class="pf"><div class="av">'+(s.photo?'<img src="'+s.photo+'" alt="Foto de '+esc(s.name)+'">':esc(initials(s.name)))+'</div><h1>'+esc(s.name)+'</h1><p class="role">'+esc(s.role)+'</p>'+socHTML()+(s.bio?'<p class="bio">'+esc(s.bio)+'</p>':'')+'<div class="tags">'+s.tags.map(t=>'<span>'+esc(t)+'</span>').join('')+'</div></div><nav class="lks">'+(s.links.map(linkHTML).join('')||'<p class="empty">Nenhum link ainda. Adicione no editor.</p>')+'</nav>'}
 function renderActs(){const a=$('#acts');
-a.innerHTML=mode==='view'?'<button class="btn pri" data-act="edit">Entrar e editar</button><button class="btn" data-act="share">Copiar link para compartilhar</button>':''}
+a.innerHTML=mode==='view'?'<button class="btn pri" data-act="edit">Entrar e editar</button><button class="btn" data-act="share">Copiar link para compartilhar</button><a class="btn shortener" href="https://is.gd/" target="_blank" rel="noopener noreferrer">Encurtar link em outro site ↗</a>':''}
 const sfld=(it,i)=>{const n=NETS[it.k];return'<div class="sr"><span class="sl">'+esc(n.l)+'</span><div class="r1"><input data-s="'+i+'" value="'+esc(it.v)+'" placeholder="'+esc(n.p)+'" aria-label="'+esc(n.n)+'"><div class="mv"><button data-act="sdel" data-i="'+i+'" aria-label="Excluir '+esc(n.n)+'">✕</button></div></div></div>'};
 function socEd(){const av=Object.keys(NETS).filter(k=>!S.social.some(x=>x.k===k));
 return (S.social.map(sfld).join('')||'<p class="empty">Nenhuma rede incluída.</p>')+(av.length&&S.social.length<12?'<div class="cp sadd"><select id="sn" aria-label="Rede social a incluir">'+av.map(k=>'<option value="'+k+'">'+esc(NETS[k].n)+'</option>').join('')+'</select><button class="btn" data-act="sadd">Incluir</button></div>':'')}
@@ -205,23 +191,7 @@ const c=e.target.closest('[data-cmd]');if(c){copy(S.links[+c.dataset.cmd].url);r
 const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act,r=b.closest('.le'),i=r?+r.dataset.i:-1;
 if(a==='edit'){mode='edit';setHash('#edit');render()}
 else if(a==='done'){mode='view';setHash('');render()}
-else if(a==='share'){
-  const longUrl=shareUrl();
-  b.disabled=true;
-  const oldLabel=b.textContent;
-  b.textContent='Encurtando link…';
-  try{
-    const shortUrl=await shortenShareUrl(longUrl);
-    await copy(shortUrl);
-    toast('Link curto copiado');
-  }catch(err){
-    await copy(longUrl);
-    toast('Não foi possível encurtar; link completo copiado');
-  }finally{
-    b.disabled=false;
-    b.textContent=oldLabel;
-  }
-}
+else if(a==='share'){await copy(shareUrl())}
 else if(a==='dup'){location.hash='#e='+enc(S)}
 else if(a==='new'){location.hash=''}
 else if(a==='cs'){copy(b.parentElement.querySelector('input').value)}
