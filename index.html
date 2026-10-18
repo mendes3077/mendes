@@ -144,6 +144,20 @@ const m=v.replace(/^mailto:/i,'');return/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(m)?'ma
 function socHTML(){const x=S.social.map(it=>{const h=socHref(it.k,it.v);return h?'<a href="'+esc(h)+'" target="_blank" rel="noopener noreferrer">'+esc(NETS[it.k].n)+'</a>':''}).join('');return x?'<div class="soc">'+x+'</div>':''}
 function initials(n){const p=String(n).trim().split(/\s+/).filter(Boolean);return((p[0]||'?')[0]+(p[1]?p[1][0]:'')).toUpperCase()}
 function shareUrl(){return base+'#d='+enc(S)}
+async function shortenShareUrl(url){
+  const cacheKey='tc_short_url_v1:'+url;
+  try{
+    const cached=localStorage.getItem(cacheKey);
+    if(cached&&/^https:\/\/tinyurl\.com\//i.test(cached))return cached;
+  }catch(e){}
+  const endpoint='https://tinyurl.com/api-create.php?url='+encodeURIComponent(url);
+  const response=await fetch(endpoint,{method:'GET'});
+  if(!response.ok)throw new Error('O serviço de encurtamento não respondeu.');
+  const shortUrl=(await response.text()).trim();
+  if(!/^https:\/\/tinyurl\.com\/[A-Za-z0-9_-]+$/i.test(shortUrl))throw new Error('O serviço não retornou um link curto válido.');
+  try{localStorage.setItem(cacheKey,shortUrl)}catch(e){}
+  return shortUrl;
+}
 function editUrl(){return base+'#e='+enc(S)}
 function setHash(h){try{history.replaceState(null,'',base+h)}catch(e){}}
 function toast(m){clearTimeout(tt);let t=$('.toast');if(!t){t=document.createElement('div');t.className='toast';t.setAttribute('role','status');document.body.appendChild(t)}t.textContent=m;tt=setTimeout(()=>t.remove(),2200)}
@@ -190,7 +204,23 @@ const c=e.target.closest('[data-cmd]');if(c){copy(S.links[+c.dataset.cmd].url);r
 const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act,r=b.closest('.le'),i=r?+r.dataset.i:-1;
 if(a==='edit'){mode='edit';setHash('#edit');render()}
 else if(a==='done'){mode='view';setHash('');render()}
-else if(a==='share'){if(!await copy(shareUrl())){mode='edit';render();$('#shr').scrollIntoView()}}
+else if(a==='share'){
+  const longUrl=shareUrl();
+  b.disabled=true;
+  const oldLabel=b.textContent;
+  b.textContent='Encurtando link…';
+  try{
+    const shortUrl=await shortenShareUrl(longUrl);
+    await copy(shortUrl);
+    toast('Link curto copiado');
+  }catch(err){
+    await copy(longUrl);
+    toast('Não foi possível encurtar; link completo copiado');
+  }finally{
+    b.disabled=false;
+    b.textContent=oldLabel;
+  }
+}
 else if(a==='dup'){location.hash='#e='+enc(S)}
 else if(a==='new'){location.hash=''}
 else if(a==='cs'){copy(b.parentElement.querySelector('input').value)}
