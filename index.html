@@ -145,16 +145,17 @@ function socHTML(){const x=S.social.map(it=>{const h=socHref(it.k,it.v);return h
 function initials(n){const p=String(n).trim().split(/\s+/).filter(Boolean);return((p[0]||'?')[0]+(p[1]?p[1][0]:'')).toUpperCase()}
 function shareUrl(){return base+'#d='+enc(S)}
 async function shortenShareUrl(url){
-  const cacheKey='tc_short_url_v1:'+url;
+  const cacheKey='tc_short_url_v2:'+url;
   try{
     const cached=localStorage.getItem(cacheKey);
-    if(cached&&/^https:\/\/tinyurl\.com\//i.test(cached))return cached;
+    if(cached&&/^https:\/\/is\.gd\/[A-Za-z0-9]+$/i.test(cached))return cached;
   }catch(e){}
-  const endpoint='https://tinyurl.com/api-create.php?url='+encodeURIComponent(url);
+  // is.gd oferece uma API simples de encurtamento sem exigir chave de API.
+  const endpoint='https://is.gd/create.php?format=simple&url='+encodeURIComponent(url);
   const response=await fetch(endpoint,{method:'GET'});
   if(!response.ok)throw new Error('O serviço de encurtamento não respondeu.');
   const shortUrl=(await response.text()).trim();
-  if(!/^https:\/\/tinyurl\.com\/[A-Za-z0-9_-]+$/i.test(shortUrl))throw new Error('O serviço não retornou um link curto válido.');
+  if(!/^https:\/\/is\.gd\/[A-Za-z0-9]+$/i.test(shortUrl))throw new Error('O serviço não retornou um link curto válido: '+shortUrl.slice(0,120));
   try{localStorage.setItem(cacheKey,shortUrl)}catch(e){}
   return shortUrl;
 }
